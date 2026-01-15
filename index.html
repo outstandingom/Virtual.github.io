@@ -2,56 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>AR Book View</title>
+  <title>AR Book in Room</title>
 
   <script type="module"
     src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js">
   </script>
 
   <style>
-    body {
-      margin: 0;
-      background: black;
-      font-family: Arial, sans-serif;
-    }
-
+    body { margin: 0; background: black; }
     model-viewer {
       width: 100vw;
       height: 100vh;
-    }
-
-    .help {
-      position: absolute;
-      top: 15px;
-      width: 100%;
-      text-align: center;
-      color: white;
-      font-size: 14px;
-      opacity: 0.85;
     }
   </style>
 </head>
 
 <body>
 
-  <div class="help">
-    👉 Tap “VIEW IN AR” to open camera
-  </div>
+<model-viewer
+  src="Blue%20Book.glb"
+  ar
+  ar-modes="scene-viewer webxr quick-look"
+  ar-placement="floor"
+  camera-controls
+  scale="1 1 1"
+  alt="AR Book">
 
-  <model-viewer
-    src="Blue%20Book.glb"
-    ar
-    ar-modes="scene-viewer webxr quick-look"
-    ar-placement="floor"
-    camera-controls
-    alt="AR Book">
+  <button slot="ar-button"
+    style="padding:14px 22px;font-size:16px;">
+    📷 View Book in AR
+  </button>
 
-    <button slot="ar-button"
-      style="padding: 14px 22px; font-size: 16px;">
-      📷 VIEW IN AR
-    </button>
-
-  </model-viewer>
+</model-viewer>
 
 </body>
 </html>
