@@ -1,7 +1,9 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Camera Background + 3D Book</title>
+  <meta charset="UTF-8">
+  <title>AR Book – Camera Background</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -11,10 +13,11 @@
       background: black;
     }
 
-    /* Live camera video */
+    /* Live camera background */
     #video-bg {
       position: fixed;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       width: 100vw;
       height: 100vh;
       object-fit: cover;
@@ -24,22 +27,27 @@
     /* Three.js canvas overlay */
     canvas {
       position: fixed;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       z-index: 2;
-      pointer-events: none;
+      pointer-events: auto;
     }
   </style>
 </head>
 
 <body>
 
+  <!-- Camera feed -->
   <video id="video-bg" autoplay playsinline muted></video>
 
   <script type="module">
     import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
     import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.132.2/examples/jsm/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'https://cdn.skypack.dev/three@0.132.2/examples/jsm/controls/OrbitControls.js';
 
-    /* 1️⃣ START CAMERA */
+    /* =======================
+       1️⃣ START CAMERA
+    ======================= */
     const video = document.getElementById('video-bg');
 
     navigator.mediaDevices.getUserMedia({
@@ -52,7 +60,9 @@
       console.error(err);
     });
 
-    /* 2️⃣ THREE.JS SETUP */
+    /* =======================
+       2️⃣ THREE.JS SETUP
+    ======================= */
     const scene = new THREE.Scene();
 
     const camera = new THREE.PerspectiveCamera(
@@ -61,43 +71,66 @@
       0.01,
       100
     );
-    camera.position.z = 2;
+    camera.position.set(0, 0, 2);
 
     const renderer = new THREE.WebGLRenderer({
       alpha: true,
       antialias: true
     });
-
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(renderer.domElement);
 
-    /* Lighting */
+    /* =======================
+       3️⃣ ORBIT CONTROLS
+       (ROTATION ONLY)
+    ======================= */
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableZoom = false;
+    controls.enablePan = false;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.rotateSpeed = 0.6;
+
+    /* =======================
+       4️⃣ LIGHTING
+    ======================= */
     scene.add(new THREE.AmbientLight(0xffffff, 1.5));
     const dirLight = new THREE.DirectionalLight(0xffffff, 1);
     dirLight.position.set(2, 5, 5);
     scene.add(dirLight);
 
-    /* 3️⃣ LOAD BOOK MODEL */
+    /* =======================
+       5️⃣ LOAD BOOK MODEL
+    ======================= */
     let book;
     const loader = new GLTFLoader();
 
     loader.load('Blue%20Book.glb', gltf => {
       book = gltf.scene;
-      book.scale.set(1, 1, 1);
       book.position.set(0, -0.5, -1.5);
       scene.add(book);
+
+      // Rotate around book center
+      controls.target.copy(book.position);
+      controls.update();
+    }, undefined, error => {
+      console.error("GLB load error:", error);
     });
 
-    /* 4️⃣ RENDER LOOP */
+    /* =======================
+       6️⃣ RENDER LOOP
+    ======================= */
     function animate() {
       requestAnimationFrame(animate);
-      if (book) book.rotation.y += 0.005;
+      controls.update();
       renderer.render(scene, camera);
     }
     animate();
 
-    /* 5️⃣ HANDLE RESIZE */
+    /* =======================
+       7️⃣ HANDLE RESIZE
+    ======================= */
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
