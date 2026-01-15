@@ -1,75 +1,63 @@
+
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    
-    <title>AR Book - No ARCore Needed</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Browser AR (No Google Services)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
-        #video-input { position: absolute; width: 100%; height: 100%; object-fit: cover; }
-        canvas { position: absolute; top: 0; left: 0; }
+        #camera-feed {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; object-fit: cover; z-index: -1;
+        }
+        canvas { display: block; }
     </style>
 </head>
 <body>
-    <video id="video-input" autoplay playsinline></video>
+    <video id="camera-feed" autoplay playsinline></video>
 
     <script type="module">
         import { GLTFLoader } from 'https://unpkg.com/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
 
-        const videoElement = document.getElementById('video-input');
         let scene, camera, renderer, book;
 
-        // 1. Initialize 3D Scene
-        scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        async function init() {
+            // Setup Camera Feed
+            const video = document.getElementById('camera-feed');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = stream;
 
-        const light = new THREE.AmbientLight(0xffffff, 1);
-        scene.add(light);
+            // Setup 3D Scene
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
 
-        // 2. Load Book
-        const loader = new GLTFLoader();
-        loader.load('Blue%20Book.glb', (gltf) => {
-            book = gltf.scene;
-            book.position.set(0, -1, -5); // Position it "in the room"
-            scene.add(book);
-        });
+            const light = new THREE.AmbientLight(0xffffff, 1.5);
+            scene.add(light);
 
-        // 3. MediaPipe Hand Tracking
-        const hands = new Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
+            // Load the Book
+            const loader = new GLTFLoader();
+            loader.load('Blue%20Book.glb', (gltf) => {
+                book = gltf.scene;
+                book.position.set(0, -0.5, -2); // Positioned in front of you
+                scene.add(book);
+            });
 
-        hands.onResults((results) => {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0 && book) {
-                const landmarks = results.multiHandLandmarks[0];
-                
-                // GESTURE: Use Index Finger Tip (Landmark 8) to rotate book
-                const indexTip = landmarks[8];
-                book.rotation.y = (indexTip.x - 0.5) * 4;
-                book.rotation.x = (indexTip.y - 0.5) * 4;
-            }
-        });
-
-        // 4. Start Camera
-        const camControl = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },
-            width: 1280, height: 720
-        });
-        camControl.start();
+            animate();
+        }
 
         function animate() {
             requestAnimationFrame(animate);
+            if (book) book.rotation.y += 0.01; // Simple auto-rotate
             renderer.render(scene, camera);
         }
-        animate();
+
+        init().catch(err => console.error("Camera blocked or not found", err));
     </script>
 </body>
 </html>
