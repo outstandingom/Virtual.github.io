@@ -1,39 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>AR Book in Room</title>
-
-  <script type="module"
-    src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js">
-  </script>
-
-  <style>
-    body { margin: 0; background: black; }
-    model-viewer {
-      width: 100vw;
-      height: 100vh;
-    }
-  </style>
+    <meta charset="utf-8">
+    <title>AR Book + Hand Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 </head>
+<body style="margin: 0;">
+    <div id="overlay" style="position: absolute; z-index: 10; color: white; padding: 10px;">
+        Connect Hand Tracking...
+    </div>
 
-<body>
+    <script type="module">
+        import { ARButton } from 'https://unpkg.com/three@0.128.0/examples/jsm/webxr/ARButton.js';
+        import { GLTFLoader } from 'https://unpkg.com/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
 
-<model-viewer
-  src="Blue%20Book.glb"
-  ar
-  ar-modes="scene-viewer webxr quick-look"
-  ar-placement="floor"
-  camera-controls
-  scale="1 1 1"
-  alt="AR Book">
+        let scene, camera, renderer, book;
 
-  <button slot="ar-button"
-    style="padding:14px 22px;font-size:16px;">
-    📷 View Book in AR
-  </button>
+        init();
+        animate();
 
-</model-viewer>
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // Add AR Button
+            document.body.appendChild(ARButton.createButton(renderer));
+
+            // Lighting
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            scene.add(light);
+
+            // Load the Book
+            const loader = new GLTFLoader();
+            loader.load('Blue%20Book.glb', (gltf) => {
+                book = gltf.scene;
+                book.scale.set(0.5, 0.5, 0.5);
+                book.position.set(0, 0, -0.5); // Place in front of user
+                scene.add(book);
+            });
+        }
+
+        // --- HAND TRACKING LOGIC ---
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && book) {
+                // Example: Map hand X position to Book Rotation
+                const thumbTip = results.multiHandLandmarks[0][4];
+                book.rotation.y = thumbTip.x * Math.PI; 
+            }
+        });
+
+        function animate() {
+            renderer.setAnimationLoop(render);
+        }
+
+        function render() {
+            renderer.render(scene, camera);
+        }
+    </script>
 </body>
 </html>
