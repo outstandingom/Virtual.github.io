@@ -1,66 +1,109 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simple AR Overlay</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        /* This makes the camera fill the whole background */
-        #video-bg {
-            position: fixed; top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            object-fit: cover; z-index: 1;
-        }
-        /* This puts the 3D book layer on top of the camera */
-        #threejs-canvas {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%; z-index: 2;
-        }
-    </style>
+  <title>Camera Background + 3D Book</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+
+    /* Live camera video */
+    #video-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: 1;
+    }
+
+    /* Three.js canvas overlay */
+    canvas {
+      position: fixed;
+      top: 0; left: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+  </style>
 </head>
+
 <body>
 
-    <video id="video-bg" autoplay playsinline></video>
-    <div id="threejs-canvas"></div>
+  <video id="video-bg" autoplay playsinline muted></video>
 
-    <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
-        import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.132.2/examples/jsm/loaders/GLTFLoader.js';
+  <script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+    import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.132.2/examples/jsm/loaders/GLTFLoader.js';
 
-        // 1. START CAMERA (The Background)
-        const video = document.getElementById('video-bg');
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => alert("Camera error: " + err));
+    /* 1️⃣ START CAMERA */
+    const video = document.getElementById('video-bg');
 
-        // 2. SETUP 3D (The Overlay)
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); // alpha: true makes it transparent
-        
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('threejs-canvas').appendChild(renderer.domElement);
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    }).then(stream => {
+      video.srcObject = stream;
+    }).catch(err => {
+      alert("Camera access denied");
+      console.error(err);
+    });
 
-        // Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 2));
+    /* 2️⃣ THREE.JS SETUP */
+    const scene = new THREE.Scene();
 
-        // 3. LOAD THE BOOK
-        let book;
-        const loader = new GLTFLoader();
-        loader.load('Blue%20Book.glb', (gltf) => {
-            book = gltf.scene;
-            book.position.set(0, 0, -3); // Place it in front of the camera
-            scene.add(book);
-        });
+    const camera = new THREE.PerspectiveCamera(
+      70,
+      window.innerWidth / window.innerHeight,
+      0.01,
+      100
+    );
+    camera.position.z = 2;
 
-        // 4. ANIMATION LOOP
-        function animate() {
-            requestAnimationFrame(animate);
-            if (book) {
-                book.rotation.y += 0.01; // Just to see it move
-            }
-            renderer.render(scene, camera);
-        }
-        animate();
-    </script>
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true
+    });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    /* Lighting */
+    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(2, 5, 5);
+    scene.add(dirLight);
+
+    /* 3️⃣ LOAD BOOK MODEL */
+    let book;
+    const loader = new GLTFLoader();
+
+    loader.load('Blue%20Book.glb', gltf => {
+      book = gltf.scene;
+      book.scale.set(1, 1, 1);
+      book.position.set(0, -0.5, -1.5);
+      scene.add(book);
+    });
+
+    /* 4️⃣ RENDER LOOP */
+    function animate() {
+      requestAnimationFrame(animate);
+      if (book) book.rotation.y += 0.005;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    /* 5️⃣ HANDLE RESIZE */
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+
 </body>
 </html>
