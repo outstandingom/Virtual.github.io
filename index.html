@@ -1,93 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Book - Gesture Ready</title>
+    <meta charset="utf-8">
+    <title>AR Book - No ARCore Needed</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; }
-        #overlay {
-            position: absolute; top: 10px; left: 10px;
-            color: white; background: rgba(0,0,0,0.5);
-            padding: 10px; border-radius: 5px; z-index: 10;
-        }
+        body { margin: 0; overflow: hidden; background: #000; }
+        #video-input { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; }
     </style>
 </head>
 <body>
-    <div id="overlay">Step 1: Click "Start AR"<br>Step 2: Move phone to find floor</div>
-
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+    <video id="video-input" autoplay playsinline></video>
 
     <script type="module">
-        import * as THREE from 'three';
-        import { ARButton } from 'three/addons/webxr/ARButton.js';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { GLTFLoader } from 'https://unpkg.com/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
 
-        let container, camera, scene, renderer, book;
+        const videoElement = document.getElementById('video-input');
+        let scene, camera, renderer, book;
 
-        init();
-        animate();
+        // 1. Initialize 3D Scene
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-        async function init() {
-            container = document.createElement('div');
-            document.body.appendChild(container);
+        const light = new THREE.AmbientLight(0xffffff, 1);
+        scene.add(light);
 
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+        // 2. Load Book
+        const loader = new GLTFLoader();
+        loader.load('Blue%20Book.glb', (gltf) => {
+            book = gltf.scene;
+            book.position.set(0, -1, -5); // Position it "in the room"
+            scene.add(book);
+        });
 
-            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-            scene.add(light);
+        // 3. MediaPipe Hand Tracking
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.xr.enabled = true; // Essential for WebXR
-            container.appendChild(renderer.domElement);
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0 && book) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // GESTURE: Use Index Finger Tip (Landmark 8) to rotate book
+                const indexTip = landmarks[8];
+                book.rotation.y = (indexTip.x - 0.5) * 4;
+                book.rotation.x = (indexTip.y - 0.5) * 4;
+            }
+        });
 
-            // This creates the button that avoids the "Google Play Services" crash
-            const button = ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
-            document.body.appendChild(button);
-
-            // Load your Book model
-            const loader = new GLTFLoader();
-            loader.load('Blue%20Book.glb', (gltf) => {
-                book = gltf.scene;
-                book.scale.set(0.5, 0.5, 0.5);
-                book.position.set(0, 0, -1); // 1 meter in front of camera
-                scene.add(book);
-                document.getElementById('overlay').innerText = "Book Loaded! Click Start AR.";
-            }, undefined, (error) => {
-                console.error("Model failed to load. Check the file name/path.", error);
-            });
-
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+        // 4. Start Camera
+        const camControl = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 1280, height: 720
+        });
+        camControl.start();
 
         function animate() {
-            renderer.setAnimationLoop(render);
-        }
-
-        function render() {
-            // Logic for hand gestures will go here later
-            if (book) {
-                // Just a tiny rotation so you know it's working
-                book.rotation.y += 0.01; 
-            }
+            requestAnimationFrame(animate);
             renderer.render(scene, camera);
         }
+        animate();
     </script>
 </body>
 </html>
